@@ -1,0 +1,42 @@
+[
+  {
+    "id": "demo-1",
+    "title": "Bienvenue! 👋",
+    "content": "C'est votre première note Post-it!\n\nVous pouvez:\n✏️ Éditer\n🗑️ Supprimer\n🎨 Changer de couleur\n🖱️ Déplacer partout!",
+    "color": "#FFD700",
+    "x": 50,
+    "y": 150,
+    "createdAt": "2024-01-15T10:00:00Z",
+    "updatedAt": "2024-01-15T10:00:00Z"
+  },
+  {
+    "id": "demo-2",
+    "title": "Créez des notes",
+    "content": "Cliquez sur le bouton\n'+ Nouvelle Note'\nen haut à droite",
+    "color": "#FFB6C1",
+    "x": 350,
+    "y": 150,
+    "createdAt": "2024-01-15T10:05:00Z",
+    "updatedAt": "2024-01-15T10:05:00Z"
+  },
+  {
+    "id": "demo-3",
+    "title": "8 couleurs dispo",
+    "content": "Or, Rose, Bleu,\nVert, Pêche, Prune,\nKhaki, Saumon\n\nChoisissez votre couleur!",
+    "color": "#87CEEB",
+    "x": 650,
+    "y": 150,
+    "createdAt": "2024-01-15T10:10:00Z",
+    "updatedAt": "2024-01-15T10:10:00Z"
+  },
+  {
+    "id": "demo-4",
+    "title": "📝 Drag & Drop",
+    "content": "Cliquez et glissez\nles notes pour les\nrepositionner où\nvous le souhaitez!",
+    "color": "#90EE90",
+    "x": 50,
+    "y": 500,
+    "createdAt": "2024-01-15T10:15:00Z",
+    "updatedAt": "2024-01-15T10:15:00Z"
+  }
+]

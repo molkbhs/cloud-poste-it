@@ -1,0 +1,224 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation Template for Post-it App - Elastic Beanstalk with MongoDB Atlas'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: postit-app-prod
+    Description: Name of the Elastic Beanstalk environment
+
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+      - t3.large
+    Description: EC2 instance type
+
+  MinSize:
+    Type: Number
+    Default: 1
+    Description: Minimum number of instances
+
+  MaxSize:
+    Type: Number
+    Default: 3
+    Description: Maximum number of instances
+
+  DatabaseURL:
+    Type: String
+    Description: MongoDB Atlas connection string
+    NoEcho: true
+
+  NodeEnvironment:
+    Type: String
+    Default: production
+    AllowedValues:
+      - development
+      - production
+    Description: Node environment
+
+  CorsOrigin:
+    Type: String
+    Default: '*'
+    Description: CORS origin URL
+
+Resources:
+  # IAM Role for EC2 instances
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier'
+        - 'arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier'
+        - 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy'
+      Policies:
+        - PolicyName: CloudWatchLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*'
+        - PolicyName: SecretsManager
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'secretsmanager:GetSecretValue'
+                Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:postit-app/*'
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2InstanceRole
+
+  # IAM Role for Elastic Beanstalk service
+  EBServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: elasticbeanstalk.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkServiceRoleForXRay'
+        - 'arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkService'
+
+  # Security Group for Elastic Beanstalk
+  EBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Elastic Beanstalk
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0  # En production, restreindre à votre IP
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  # CloudWatch Log Group
+  AppLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/elasticbeanstalk/${EnvironmentName}'
+      RetentionInDays: 7
+
+  # SNS Topic for alerts
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'postit-app-alerts-${AWS::StackName}'
+      DisplayName: Post-it App Alerts
+
+  # CloudWatch Alarm for CPU
+  CPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'postit-app-cpu-high-${AWS::StackName}'
+      AlarmDescription: Alert when CPU exceeds 70%
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 70
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref AlertTopic
+
+  # CloudWatch Alarm for 5xx errors
+  HTTP5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'postit-app-http-5xx-${AWS::StackName}'
+      AlarmDescription: Alert on 5xx errors
+      MetricName: HTTPCode_Target_5XX_Count
+      Namespace: AWS/ApplicationELB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref AlertTopic
+
+  # CloudWatch Alarm for unhealthy instances
+  UnhealthyInstancesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'postit-app-unhealthy-instances-${AWS::StackName}'
+      AlarmDescription: Alert when instances are unhealthy
+      MetricName: UnHealthyHostCount
+      Namespace: AWS/ApplicationELB
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref AlertTopic
+
+Outputs:
+  EnvironmentName:
+    Description: Elastic Beanstalk environment name
+    Value: !Ref EnvironmentName
+    Export:
+      Name: !Sub 'postit-app-environment-${AWS::StackName}'
+
+  EC2RoleArn:
+    Description: IAM role ARN for EC2 instances
+    Value: !GetAtt EC2InstanceRole.Arn
+    Export:
+      Name: !Sub 'postit-app-ec2-role-${AWS::StackName}'
+
+  EBServiceRoleArn:
+    Description: IAM role ARN for Elastic Beanstalk service
+    Value: !GetAtt EBServiceRole.Arn
+    Export:
+      Name: !Sub 'postit-app-eb-service-role-${AWS::StackName}'
+
+  SecurityGroupId:
+    Description: Security group ID
+    Value: !GetAtt EBSecurityGroup.GroupId
+    Export:
+      Name: !Sub 'postit-app-sg-${AWS::StackName}'
+
+  LogGroupName:
+    Description: CloudWatch log group name
+    Value: !Ref AppLogGroup
+    Export:
+      Name: !Sub 'postit-app-log-group-${AWS::StackName}'
+
+  AlertTopicArn:
+    Description: SNS topic ARN for alerts
+    Value: !Ref AlertTopic
+    Export:
+      Name: !Sub 'postit-app-alert-topic-${AWS::StackName}'

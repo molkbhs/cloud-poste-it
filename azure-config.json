@@ -1,0 +1,22 @@
+{
+  "version": "0.1",
+  "deploymentProvider": "AppService",
+  "subscriptionId": "YOUR_SUBSCRIPTION_ID",
+  "resourceGroupName": "postit-rg",
+  "appName": "postit-app-backend",
+  "slotName": "production",
+  "appServicePlanName": "postit-plan",
+  "location": "East US",
+  "sku": {
+    "name": "B1",
+    "tier": "Basic"
+  },
+  "runtimeStack": "NODE|18",
+  "startupCommand": "npm start",
+  "appSettings": {
+    "SCM_COMMAND_IDLE_TIMEOUT": "3600",
+    "PORT": "8080",
+    "NODE_ENV": "production",
+    "CORS_ORIGIN": "https://postit-app-frontend.azurewebsites.net"
+  }
+}
