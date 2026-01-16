@@ -33,9 +33,10 @@ if (AWS_ACCESS_KEY_ID && AWS_SECRET_ACCESS_KEY) {
 
 // Initialiser Sequelize
 const sequelize = new Sequelize(DATABASE_URL, {
-  dialect: 'postgres',
+  dialect: DATABASE_URL.startsWith('sqlite') ? 'sqlite' : 'postgres',
+  storage: DATABASE_URL.startsWith('sqlite') ? DATABASE_URL.replace('sqlite:', '') : undefined,
   logging: NODE_ENV === 'development' ? console.log : false,
-  pool: {
+  pool: DATABASE_URL.startsWith('sqlite') ? undefined : {
     max: 5,
     min: 0,
     acquire: 30000,
